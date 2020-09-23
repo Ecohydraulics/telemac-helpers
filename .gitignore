@@ -1,3 +1,24 @@
+_site/
+.sass-cache/
+.jekyll-metadata
+_pdf
+.DS_Store
+vendor/
+.bundle/
+
+# PyCharm
+.idea/
+*.pyc
+*.log
+**/.idea
+
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+
 *.gem
 *.rbc
 /.config
