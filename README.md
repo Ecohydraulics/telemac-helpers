@@ -192,6 +192,100 @@ Instructions for installing particular and Debian-compatible software (e.g. QGIS
 
 ## Install TELEMAC Prerequisites
 
+Open TELEMAC-MASCARET requires some software for downloading source files, compiling and running the program.
+
+* Mandatory prerequisites are:
+    + *Python* (use *Python3* in the latest releases)
+    + *Subversion (svn)*
+    + GNU Fortran 95 compiler (*gfortran*)
+* Optional prerequisites are:
+    + 
+
+### Python3
+
+> Estimated duration: 5-8 minutes.
+
+The high-level programing language *Python3* is pre-installed on Debian Linux 10.x and needed to launch the compiler script for TELEMAC-MASCARET. To launch *Python3*, open *Terminal* and type `python3`. To exit *Python*, type `exit()`.
+
+TELEMAC-MASCARET requires the following additional *Python* libraries:
+
+* [*NumPy*](https://numpy.org/)
+* [*SciPy*](https://scipy.org/)
+* [*matplotlib*](https://matplotlib.org/)
+ 
+To install the three libraries, open *Terminal* and type (hit `Enter` after every line):
+
+```
+su
+  ...password:
+apt-get install python3-numpy
+  [...]
+apt-get install python3-scipy
+  [...] Y [...]
+apt-get install python3-matplotlib
+  [...] Y [...]
+```
+
+> If an error occurred during the installation, install the extended dependencies (includes Qt) with the following command (after `su`): `apt-get install libgl1-mesa-glx libegl1-mesa libxrandr2 libxrandr2 libxss1 libxcursor1 libxcomposite1 libasound2 libxi6 libxtst6`. Then re-try to install the libraries.
+
+To test if the installation was successful, type `python3` in *Terminal* and import the three libraries:
+
+```
+Python 3.7.7 (default, Jul  25 2020, 13:03:44) [GCC 8.3.0] on linux
+Type "help", "copyright", "credits" or "license" for more information.
+>>> import numpy
+>>> import scipy
+>>> import matplotlib
+>>> a = numpy.array((1, 1))
+>>> print(a)
+[1 1]
+>>> exit()
+```
+
+None of the three library imports should return an `ImportError` message. To learn more about *Python* visit [hydro-informatics.github.io/python](https://hydro-informatics.github.io/python.html).
+
+### Subversion (svn)
+
+> Estimated duration: Less than 5 minutes.
+
+We will need the version control system [*Subversion*](https://wiki.debian.org/SVNTutorial) for downloading (and keeping up-to-date) the TELEMAC-MASCARET source files. *Subversion* is installed through the Debian *Terminal* with (read more in the [Debian Wiki](https://wiki.debian.org/Subversion)):
+
+```
+su
+  ...password:
+
+apt-get install subversion
+```
+
+After the successful installation, test if the installation went well by typing `svn --help` (should prompt an overview of `svn` commands). The Debian Wiki provides a [tutorial](https://wiki.debian.org/SVNTutorial) for working with *Subversion*.
+
+### GNU Fortran 95 compiler (gfortran)
+
+> Estimated duration: 5-10 minutes.
+
+The Fortran 95 compiler is needed to compile TELEMAC-MASCARET through a *Python3* script. The Debian packages repository hosts the GNU Fortran 95 compiler files in the [buster repository](https://packages.debian.org/buster/gfortran) (for *amd64*). To add the buster repository to Debian's software (package) open the file `/etc/apt/sources.list`. To open the file, go to *Activities* > *Files* (file container symbol)> *Other Locations* > *etc* > *apt* and right-click in the free space to open *Terminal*. In *Terminal* type:
+
+```
+su 
+  password:...
+
+editor sources.list
+```
+
+The nano text editor will open. Add the follow following line at the bottom of the file:
+
+```
+deb http://ftp.de.debian.org/debian buster main 
+``` 
+
+> Note: This tutorial was written in Stuttgart, Germany, where `http://ftp.de.debian.org/debian` is the closest mirror. Replace this mirror depending on where you are sitting at the time of installing the Fortran 95 compiler. A full list of repositories can be found [here](https://packages.debian.org/buster/amd64/gfortran-multilib/download).
+
+Then, save the edits with `CTRL` + `O` keys and exit *Nano* with `CTRL` + `X` keys. Next, update the repository information by typing (in *Terminal*):
+
+```
+apt-get update
+```
+
 
 ## Download and Compile TELEMAC-MASCARET
 
