@@ -8,6 +8,9 @@ This documentation guides through the installation of [open TELEMAC-MASCARET](ht
 
 Instructions for installing Debian Linux as a virtual machine in Oracle's VirtualBox on Windows 10.
 
+### Why Debian Linux?
+Debian Linux is one of the most stable Linux distribution and is freely available to a broad public. Because of its stability, Debian is an ideal baseline for running numerical simulations that may last for days or even weeks. Of course, there are always other options and Debian is rather one of the best options than *the best option*. 
+
 ### Get prerequisites
 
 > Estimated duration: 5-10 minutes.
@@ -24,7 +27,7 @@ Remember where the *.iso* file is stored.
     
 ### Create Virtual Machine (VM)
 
-> Estimated duration: 5 minutes.
+> Estimated duration: 5-8 minutes.
 
 In Windows 10, click on start, type *Oracle VM VirtualBox* and hit enter. In the *VirtualBox* manger window:
 
@@ -43,6 +46,7 @@ In Windows 10, click on start, type *Oracle VM VirtualBox* and hit enter. In the
 * With the *Debian Linux* VM highlighted (i.e., just click on it), click on the yellow *Settings* wheel-button, which opens the *Settings* window:
     + In the *System/Motherboard* tab, verify the memory allocation and check the *Enable EFI (special OSes only)* box (enable).
     + In the *System/Processor* tab, select the number of processors that the VM uses. For not slowing down the main system (Windows 10), stay in the green range of the CPU bar. For parallel processing with *TELEMAC*, allocate at least 4 CPUs. 
+    + In the *Display* tab, check the *Enable 3D Acceleration* box.
     + In the *Storage* tab, find the *Controller: IDE*, where an *Empty* disk symbol should be located below. Click on the *Empty* disk symbol and find the *Attributes* frame on the right side of the window, where a small blue disk symbol should be visible. Click on the small blue disk symbol to *Choose a virtual disk file ...*. Select the Debian Linux net installer (*debian-xx.x.x-amd64-netinst.iso*) that we downloaded before.
     + Click *OK*
 
@@ -128,7 +132,7 @@ After rebooting, make sur that the installation was successful. In *Terminal* ty
 lsmod | grep vboxguest
 ``` 
 
-If the *Terminal*'s answer is something like `vboxguest   358395 2 vboxsf`, the installation was successful. 
+If the *Terminal*'s answer is something like `vboxguest   358395 2 vboxsf`, the installation was successful. Read more about *Guest Additions* on the [*VirtualBox developer's website*](https://www.virtualbox.org/manual/ch04.html).
 
 To improve the visual experience and getting familiar with Debian Linux do the following: 
 
@@ -136,9 +140,11 @@ To improve the visual experience and getting familiar with Debian Linux do the f
 * Familiarize with Debian Linux: Go to the *Activities* menu and find LibreOffice-Writer, Firefox, and the Software application. Find more applications by clicking on the four dots on the left of the menu bar - can you find the Text Editor?
 * To shut down the VM, click on the top-right corner arrow and press the Power symbol.
 
+
+
 ### Enable folder sharing
 
-> Estimated duration: 5 minutes.
+> Estimated duration: 5-10 minutes.
 
 Sharing data between the host system (Windows 10) and the guest system (Debian Linux VM) will be needed to transfer input and output files to and from the VM to the physical system.
 
@@ -159,12 +165,30 @@ The shared folder will then be visible in the *Files* (*Activities* > *Filing ca
 When trying to access the shared folder, a *Permission denied* message may appear. To grant access for your own account, add it to the *vboxsf* group. The *vboxsf* is the one automatically assigned for having access to the shared folder. To verify the group name, go to the shared folder, right-click in the free space and select *Permissions*. A window with group names that have access to the shared folder opens. To add your own username type (in *Terminal*):
 
 ```
+su
+  ...password:
+
 sudo usermod -a -G vboxsf YOUR-USER-NAME
 ```
 
 Reboot the Debian Linux VM and test afterwards if you can access the folder, and create and modify files. 
 
+### Install and Update Software
 
+To install other software, preferably use the built-in software manager (*Activities* > *Shopping bag* symbol). The *Software* manager uses official releases in the stable debian repository ([read more about lists of sources](https://wiki.debian.org/SourcesList)).
+
+To update the repositories, open *Terminal* and type:
+
+```
+su
+  ...password:
+
+sudo apt-get update
+```
+
+Instructions for installing particular and Debian-compatible software (e.g. QGIS) can be found directly the developers website. For example, to install *Anaconda* *Python* visit [docs.anaconda.com](https://docs.anaconda.com/anaconda/install/linux/) and follow the instructions for Debian Linux.
+
+> ***Important***: If the main purpose of the VM is to run resource-intensive simulations (e.g. with TELEMAC-MASCARET), avoid to install any other software than those required for running the model. Also, as a general rule of thumb: Less is better than more.
 
 ## Install TELEMAC Prerequisites
 
