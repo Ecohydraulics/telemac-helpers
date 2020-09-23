@@ -85,7 +85,7 @@ su
 
 Enter the above-created password for the root user name (see installation section).
 
-> Note: Root access (e.g. for installing software) is granted on many Linux distribution using the `sudo` command before the command to execute. In Debian Linux, `sudo` may refer to the wrong account and not work as desired. As a workaround use `su` in the *Terminal*.
+> Note: Root access (e.g. for installing software) is granted on many Linux distribution using the `sudo` command before the command to execute. In Debian Linux, `sudo` may refer to the wrong account and not work as desired. As a workaround use `su` in the *Terminal*. Alternatively, type `sudo usermod -a -G sudo YOUR-USER-NAME` in *Terminal* (after `su`).
 
 Install all packages required for building kernel modules:
 
@@ -102,7 +102,7 @@ Find the *Devices* drop down menu of the VM Box window (not in Debian Linux itse
 
 > Note: If an error occurs ("The guest system has no CR-ROM ..."), shutdown the VM. In the *VirtualBox* manager window, right-click on the *Debian Linux* VM > *Storage* tab > Add new Optical Drive to *Controller: IDE*. Restart the *Debian Linux* VM.
 
-Back in the Debian Linux *Terminal* moun the *Guest Additions* *iso* file by typing (do not forget `su` if you needed to restart *Terminal*):
+Back in the Debian Linux *Terminal*, mount the *Guest Additions* *iso* file by typing (do not forget `su` if you needed to restart *Terminal*):
 
 ```
 mkdir -p /mnt/cdrom
@@ -155,6 +155,16 @@ Sharing data between the host system (Windows 10) and the guest system (Debian L
 The shared folder will then be visible in the *Files* (*Activities* > *Filing cabinet symbol*) on the left (e.g. as *sf_shared*). A reboot may be required.
 
 > Note: File sharing only works with the *Guest Additions CD image* installed (see above section on setting up and familiarizing with Debian Linux).
+
+When trying to access the shared folder, a *Permission denied* message may appear. To grant access for your own account, add it to the *vboxsf* group. The *vboxsf* is the one automatically assigned for having access to the shared folder. To verify the group name, go to the shared folder, right-click in the free space and select *Permissions*. A window with group names that have access to the shared folder opens. To add your own username type (in *Terminal*):
+
+```
+sudo usermod -a -G vboxsf YOUR-USER-NAME
+```
+
+Reboot the Debian Linux VM and test afterwards if you can access the folder, and create and modify files. 
+
+
 
 ## Install TELEMAC Prerequisites
 
