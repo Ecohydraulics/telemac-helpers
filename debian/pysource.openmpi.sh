@@ -29,7 +29,7 @@ export PYTHONPATH=$HOMETEL/builds/$USETELCFG/wrap_api/lib:$PYTHONPATH
 export SYSTEL=$HOMETEL/optionals
 ### MPI -----------------------------------------------------------
 export MPIHOME=/usr/bin/mpifort.mpich
-export PATH=lib/x86_64-linux-gnu/openmpi:$PATH
+export PATH=/usr/lib/x86_64-linux-gnu/openmpi:$PATH
 export LD_LIBRARY_PATH=$PATH/lib:$LD_LIBRARY_PATH
 ###
 ### EXTERNAL LIBRARIES -----------------------------------------------------------
@@ -47,5 +47,5 @@ export PATH=$MEDHOME/bin:$PATH
 #export SCALAPACKHOME=$SYSTEL/LIBRARY/scalapack/gnu
 #export BLACSHOME=$SYSTEL/LIBRARY/blacs/gnu
 ### METIS -------------------------------------------------------------
-export METISHOME=$SYSTEL/metis-5.1.0/build/Linux-x86_64/
-export LD_LIBRARY_PATH=$METISHOME/libmetis:$LD_LIBRARY_PATH
+export METISHOME=$SYSTEL/metis-5.1.0/build/
+export LD_LIBRARY_PATH=$METISHOME/lib:$LD_LIBRARY_PATH
