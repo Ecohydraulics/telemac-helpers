@@ -49,3 +49,6 @@ export PATH=$MEDHOME/bin:$PATH
 ### METIS -------------------------------------------------------------
 export METISHOME=$SYSTEL/metis-5.1.0/build/
 export LD_LIBRARY_PATH=$METISHOME/lib:$LD_LIBRARY_PATH
+### AED ---------------------------------------------------------------
+export AEDHOME=$SYSTEL/aed2
+export LD_LIBRARY_PATH=$AEDHOME/obj:$LD_LIBRARY_PATH
