@@ -10,11 +10,11 @@ export HOMETEL=/home/USER-NAME/telemac/v8p2
 # Adding python scripts to PATH
 export PATH=$HOMETEL/scripts/python3:.:$PATH
 # Configuration file
-export SYSTELCFG=$HOMETEL/configs/systel.cis-debian.cfg
+export SYSTELCFG=$HOMETEL/configs/systel.cis-debian-dyn.cfg
 # Name of the configuration to use
-export USETELCFG=debgfopenmpi
+export USETELCFG=debgfopenmpidyn
 # Path to this file
-export SOURCEFILE=$HOMETEL/configs/pysource.openmpi.sh
+export SOURCEFILE=$HOMETEL/configs/pysource.openmpi-dyn.sh
 ### Python
 # To force python to flush its output
 export PYTHONUNBUFFERED='true'
@@ -43,13 +43,13 @@ export MEDHOME=$SYSTEL/med-3.2.0
 export LD_LIBRARY_PATH=$MEDHOME/lib:$LD_LIBRARY_PATH
 export PATH=$MEDHOME/bin:$PATH
 ### MUMPS -------------------------------------------------------------
-#export MUMPSHOME=$SYSTEL/LIBRARY/mumps/gnu
-#export SCALAPACKHOME=$SYSTEL/LIBRARY/scalapack/gnu
-#export BLACSHOME=$SYSTEL/LIBRARY/blacs/gnu
+# export MUMPSHOME=$SYSTEL/Mumps-4100
+# export SCALAPACKHOME=$SYSTEL/Scalapack-202
+# export BLACSHOME=$SYSTEL/LIBRARY/blacs/gnu
 ### METIS -------------------------------------------------------------
 export METISHOME=$SYSTEL/metis-5.1.0/build/
 export LD_LIBRARY_PATH=$METISHOME/lib:$LD_LIBRARY_PATH
 ### AED ---------------------------------------------------------------
-# export AEDHOME=$SYSTEL/aed2
-# export LD_LIBRARY_PATH=$AEDHOME/obj:$LD_LIBRARY_PATH
+# export AEDHOME=$SYSTEL/Aed2-12
+# export LD_LIBRARY_PATH=$AEDHOME/lib$LD_LIBRARY_PATH
 #
