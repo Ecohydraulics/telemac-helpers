@@ -137,14 +137,14 @@ PRESCRIBED ELEVATIONS : 2.;0.
 / INITIAL CONDITIONS
 / ------------------------------------------------------------------
 INITIAL CONDITIONS : 'CONSTANT ELEVATION' / or CONSTANT DEPTH see docs sec. 4.2
-INITIAL ELEVATION : 2. / corresponds to depth here - not in boundary file 
+INITIAL ELEVATION : 50. / corresponds to depth here - not in boundary file 
 / INITIAL DEPTH :  2. 
 INITIAL GUESS FOR DEPTH : 1 / INTEGER for speeding up calculations
 /
 / Other
 /------------------------------------------------------------------
 VELOCITY VERTICAL PROFILES : 2;2 / 0 (user-defined), 1 (Constant), 2 (Log)
-VELOCITY PROFILE : 1 / horizontal profile
+VELOCITY PROFILES : 1;1 / horizontal profile
 /
 /------------------------------------------------------------------/
 /			TURBULENCE
