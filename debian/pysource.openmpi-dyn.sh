@@ -6,7 +6,7 @@
 ### TELEMAC settings -----------------------------------------------------------
 ###
 # Path to telemac root dir
-export HOMETEL=/home/USER-NAME/telemac/v8p3
+export HOMETEL=/home/USER-NAME/telemac/v8p4
 # Adding python scripts to PATH
 export PATH=$HOMETEL/scripts/python3:.:$PATH
 # Configuration file
