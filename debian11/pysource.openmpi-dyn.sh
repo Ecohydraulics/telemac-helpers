@@ -28,7 +28,7 @@ export PYTHONPATH=$HOMETEL/builds/$USETELCFG/wrap_api/lib:$PYTHONPATH
 # Here are a few examples for external libraries
 export SYSTEL=$HOMETEL/optionals
 ### MPI -----------------------------------------------------------
-export MPIHOME=/usr/bin/mpifort.mpich
+export MPIHOME=/usr/bin/mpif90.openmpi
 export PATH=/usr/lib/x86_64-linux-gnu/openmpi:$PATH
 export LD_LIBRARY_PATH=$PATH/lib:$LD_LIBRARY_PATH
 ###
