@@ -47,7 +47,7 @@ export PATH=$MEDHOME/bin:$PATH
 #export SCALAPACKHOME=$SYSTEL/LIBRARY/scalapack/gnu
 #export BLACSHOME=$SYSTEL/LIBRARY/blacs/gnu
 ### METIS -------------------------------------------------------------
-export METISHOME=$SYSTEL/metis-5.1.0/build/
+export METISHOME=$SYSTEL/metis/build/
 export LD_LIBRARY_PATH=$METISHOME/lib:$LD_LIBRARY_PATH
 ### AED ---------------------------------------------------------------
 export AEDHOME=$SYSTEL/aed2
