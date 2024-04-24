@@ -6,7 +6,7 @@
 ### TELEMAC settings -----------------------------------------------------------
 ###
 # Path to telemac root dir
-export HOMETEL=/home/USER-NAME/telemac/v8p4
+export HOMETEL=/home/USER-NAME/telemac/v8p5
 # Adding python scripts to PATH
 export PATH=$HOMETEL/scripts/python3:.:$PATH
 # Configuration file
@@ -34,14 +34,20 @@ export LD_LIBRARY_PATH=$PATH/lib:$LD_LIBRARY_PATH
 ###
 ### EXTERNAL LIBRARIES -----------------------------------------------------------
 ###
+### Note: better use Q4TS QGIS plugin for MED file handling
 ### HDF5 -----------------------------------------------------------
-export HDF5HOME=$SYSTEL/hdf5
-export LD_LIBRARY_PATH=$HDF5HOME/lib:$LD_LIBRARY_PATH
-export LD_RUN_PATH=$HDF5HOME/lib:$MEDHOME/lib:$LD_RUN_PATH
+# export HDF5HOME=$SYSTEL/hdf5
+# export LD_LIBRARY_PATH=$HDF5HOME/lib:$LD_LIBRARY_PATH
+# export LD_RUN_PATH=$HDF5HOME/lib:$MEDHOME/lib:$LD_RUN_PATH
 ### MED  -----------------------------------------------------------
-export MEDHOME=$SYSTEL/med-4.0.0
-export LD_LIBRARY_PATH=$MEDHOME/lib:$LD_LIBRARY_PATH
-export PATH=$MEDHOME/bin:$PATH
+# export MEDHOME=$SYSTEL/med-4.0.0
+# export LD_LIBRARY_PATH=$MEDHOME/lib:$LD_LIBRARY_PATH
+# export PATH=$MEDHOME/bin:$PATH
+### MUMPS -------------------------------------------------------------
+# export MUMPSHOME=$SYSTEL/Mumps-4100
+# export SCALAPACKHOME=$SYSTEL/Scalapack-202
+# export BLACSHOME=$SYSTEL/LIBRARY/blacs/gnu
+###
 ### MUMPS -------------------------------------------------------------
 #export MUMPSHOME=$SYSTEL/LIBRARY/mumps/gnu
 #export SCALAPACKHOME=$SYSTEL/LIBRARY/scalapack/gnu
