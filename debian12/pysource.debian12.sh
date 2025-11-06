@@ -33,15 +33,6 @@ _first_dir() {
   return 1
 }
 
-# SALOME layout remains user-installed and identical to Mint setup
-# Change SALOME_ROOT only if you used a different location
-: "${SALOME_ROOT:=${HOME}/opt/salome}"
-: "${SALOME_APPLI:=${SALOME_ROOT}/appli_V9}"
-_salome_lib="$(_first_dir \
-  "${SALOME_APPLI}/V9_*/lib/salome" \
-  "${SALOME_APPLI}/lib/salome" \
-  "${SALOME_ROOT}/lib/salome")"
-
 # MPI. Prefer OpenMPI wrappers if present
 _MPI_BIN="$(dirname "$(command -v mpif90 2>/dev/null || command -v mpifort 2>/dev/null || command -v mpicc 2>/dev/null || echo /usr/bin/mpif90)")"
 _MPI_INC="$(_first_dir \
@@ -64,12 +55,9 @@ _HDF5_LIB="$(_first_dir \
   "${_archlib}")"
 
 # MED-fichier
-_MED_INC="$(_first_dir \
-  "/usr/include" \
-  "/usr/include/med")"
-_MED_LIB="$(_first_dir \
-  "${_archlib}" \
-  "${_archlib}/med")"
+export _MED_ROOT="$HOME/opt/salome/BINARIES-UB24.04/medfile/"
+export _MED_INC="$HOME/opt/salome/BINARIES-UB24.04/medfile/include"
+export _MED_LIB="$HOME/opt/salome/BINARIES-UB24.04/medfile/lib"
 
 # METIS and ParMETIS
 _METIS_INC="$(_first_dir "/usr/include")"
@@ -98,8 +86,7 @@ for _libdir in \
   "${_MUMPS_LIB}" \
   "${_METIS_LIB}" \
   "${_PARMETIS_LIB}" \
-  "${_MED_LIB}" \
-  "${_salome_lib}"
+  "${_MED_LIB}"
 do
   [ -n "${_libdir}" ] || continue
   case ":${LD_LIBRARY_PATH}:" in *:"${_libdir}":*) ;; *) export LD_LIBRARY_PATH="${_libdir}:${LD_LIBRARY_PATH}";; esac
