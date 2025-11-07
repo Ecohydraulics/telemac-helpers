@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # TELEMAC environment for Debian 12 with MPI/HDF5/MED/METIS/MUMPS/ScaLAPACK
-# Assumes you installed optional dependencies from apt on Debian 12
+# Assumes all optional dependencies are installed from from apt on Debian 12
 # Only SALOME is user-installed
 
-# Resolve this script's directory and HOMETEL from it
+# Resolve script directory and HOMETEL from it
 _THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export HOMETEL="$(cd "${_THIS_DIR}/.." && pwd)"
 export SOURCEFILE="${_THIS_DIR}"
@@ -15,7 +15,7 @@ export USETELCFG="hyinfompideb12"
 
 # Make TELEMAC Python utilities available
 if [ -d "${HOMETEL}/scripts/python3" ]; then
-  case ":${PYTHONPATH}:" in *:"${HOMETEL}/scripts/python3":*) ;; *) export PYTHONPATH="${HOMETEL}/scripts/python3:${PYTHONPATH}";; esac
+    case ":${PATH}:" in *:"${HOMETEL}/scripts/python3":*) ;; *) export PATH="${HOMETEL}/scripts/python3:${PATH}";; esac
 fi
 if [ -d "${HOMETEL}/scripts/unix" ]; then
   case ":${PATH}:" in *:"${HOMETEL}/scripts/unix":*) ;; *) export PATH="${HOMETEL}/scripts/unix:${PATH}";; esac
@@ -55,9 +55,9 @@ _HDF5_LIB="$(_first_dir \
   "${_archlib}")"
 
 # MED-fichier
-export _MED_ROOT="$HOME/opt/salome/BINARIES-UB24.04/medfile/"
-export _MED_INC="$HOME/opt/salome/BINARIES-UB24.04/medfile/include"
-export _MED_LIB="$HOME/opt/salome/BINARIES-UB24.04/medfile/lib"
+export _MED_ROOT="$HOME/opt/salome/BINARIES-DB12/medfile/"
+export _MED_INC="$HOME/opt/salome/BINARIES-DB12/medfile/include"
+export _MED_LIB="$HOME/opt/salome/BINARIES-DB12/medfile/lib"
 
 # METIS and ParMETIS
 _METIS_INC="$(_first_dir "/usr/include")"
