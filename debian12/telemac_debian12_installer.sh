@@ -294,6 +294,7 @@ create_cfg() {
   local SALOME_LIB_BLOCK=""
   local SALOME_INCS_ALL_MED=""
   local SALOME_LIBS_ALL_MED=""
+  local SALOME_RPATH_MED=""
 
   if [ -n "$SALOME_MED_ROOT" ]; then
     log "Detected SALOME MED libraries at '$SALOME_MED_ROOT'; enabling MED support in cfg."
@@ -301,6 +302,14 @@ create_cfg() {
     SALOME_LIB_BLOCK="libs_med:      -L ${SALOME_MED_ROOT}/lib -lmedC -lmed -lmedimport"
     SALOME_INCS_ALL_MED="[inc_med] "
     SALOME_LIBS_ALL_MED="[libs_med] "
+    SALOME_RPATH_MED=" -Wl,-rpath,${SALOME_MED_ROOT}/lib"
+    # Check for SALOME's bundled HDF5 (MED library may depend on it)
+    local SALOME_HDF5_LIB="${SALOME_MED_ROOT}/../hdf5/lib"
+    if [ -d "$SALOME_HDF5_LIB" ]; then
+      SALOME_HDF5_LIB="$(cd "$SALOME_HDF5_LIB" && pwd)"
+      log "Detected SALOME bundled HDF5 at '$SALOME_HDF5_LIB'; adding to rpath."
+      SALOME_RPATH_MED="${SALOME_RPATH_MED} -Wl,-rpath,${SALOME_HDF5_LIB}"
+    fi
   else
     log "No SALOME MED libraries detected; cfg will be generated without MED support."
   fi
@@ -381,8 +390,8 @@ cmd_exe:   [fc] [fflags] -o <exename> <objs> <libs>
 mods_all:  -I <config>
 incs_all:  [inc_mpi] [inc_hdf5] ${SALOME_INCS_ALL_MED}[inc_metis] [inc_mumps]
 libs_all:  [libs_hdf5] ${SALOME_LIBS_ALL_MED}[libs_metis] [libs_mumps]
-ldflags_opt:   -Wl,-rpath,/usr/lib/x86_64-linux-gnu/hdf5/openmpi
-ldflags_debug: -Wl,-rpath,/usr/lib/x86_64-linux-gnu/hdf5/openmpi
+ldflags_opt:   -Wl,-rpath,/usr/lib/x86_64-linux-gnu/hdf5/openmpi${SALOME_RPATH_MED}
+ldflags_debug: -Wl,-rpath,/usr/lib/x86_64-linux-gnu/hdf5/openmpi${SALOME_RPATH_MED}
 EOF
 }
 
@@ -469,6 +478,13 @@ if [ -n "${_MED_ROOT}" ]; then
   export _MED_ROOT
   export _MED_INC="${_MED_ROOT}/include"
   export _MED_LIB="${_MED_ROOT}/lib"
+  # Check for SALOME's bundled HDF5 (MED library may depend on it)
+  _SALOME_HDF5_LIB="$(_first_dir \
+    "${_MED_ROOT}/../hdf5/lib" \
+    "${SALOME_ROOT}/BINARIES-DB12/hdf5/lib")"
+  if [ -n "${_SALOME_HDF5_LIB}" ]; then
+    export _SALOME_HDF5_LIB
+  fi
 fi
 
 # METIS, ParMETIS, MUMPS, ScaLAPACK
@@ -500,6 +516,7 @@ for _libdir in \
   "${_MUMPS_LIB}" \
   "${_METIS_LIB}" \
   "${_PARMETIS_LIB}" \
+  "${_SALOME_HDF5_LIB:-}" \
   "${_MED_LIB}"
 do
   [ -n "${_libdir}" ] || continue
@@ -549,7 +566,10 @@ fi
 echo "TELEMAC set: HOMETEL='${HOMETEL}', SYSTELCFG='${SYSTELCFG}', USETELCFG='${USETELCFG}'"
 echo "MPI bin='${_MPI_BIN}', MPI inc='${_MPI_INC}', MPI lib='${_MPI_LIB}'"
 echo "HDF5 inc='${_HDF5_INC}', HDF5 lib='${_HDF5_LIB}'"
-[ -n "${_MED_ROOT}" ] && echo "MED root='${_MED_ROOT}' (SALOME_ROOT='${SALOME_ROOT}')"
+if [ -n "${_MED_ROOT}" ]; then
+  echo "MED root='${_MED_ROOT}' (SALOME_ROOT='${SALOME_ROOT}')"
+  [ -n "${_SALOME_HDF5_LIB:-}" ] && echo "SALOME HDF5 lib='${_SALOME_HDF5_LIB}'"
+fi
 
 export PYTHONUNBUFFERED="1"
 EOF
