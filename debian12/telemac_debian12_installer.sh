@@ -563,6 +563,11 @@ if [ -d "${HOMETEL}/scripts/python3" ]; then
   esac
 fi
 
+# Unset DISPLAY to prevent X11 authorization errors with MPI processes
+# MPI programs spawning child processes can fail with X11 errors if DISPLAY is set
+# but authorization is not properly configured for all processes
+unset DISPLAY
+
 echo "TELEMAC set: HOMETEL='${HOMETEL}', SYSTELCFG='${SYSTELCFG}', USETELCFG='${USETELCFG}'"
 echo "MPI bin='${_MPI_BIN}', MPI inc='${_MPI_INC}', MPI lib='${_MPI_LIB}'"
 echo "HDF5 inc='${_HDF5_INC}', HDF5 lib='${_HDF5_LIB}'"
