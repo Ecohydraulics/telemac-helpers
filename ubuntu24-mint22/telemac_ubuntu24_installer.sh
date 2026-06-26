@@ -1,6 +1,25 @@
 #!/usr/bin/env bash
 # TELEMAC-MASCARET (+ optional SALOME) installer for Linux Mint 22 / Ubuntu 24.04 (noble)
 #
+# Copyright (C) 2026 Sebastian Schwindt
+#
+# This script is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation, either version 3 of the License, or, at your
+# option, any later version.
+#
+# This script is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+# for more details.
+#
+# WARNING:
+# This script may install system packages, download third-party source code,
+# compile software, create symbolic links, and modify user-level desktop/menu
+# entries. Review the script before running it. Use it at your own risk.
+# Do not run it on production, shared, institutional, or safety-critical
+# systems unless you have authorization, backups, and a tested recovery plan.
+#
 # Installs:
 #   1. TELEMAC and dependencies (default tag: v9.1.1)
 #   2. (Optionally) SALOME into ROOT_DIR/salome, used for the GUI / mesh tools
@@ -25,6 +44,15 @@
 #   ./telemac_ubuntu24_installer.sh --salome-tar SALOME-9.15.0.tar.gz --salome-md5 SALOME-9.15.0.tar.gz.md5
 #
 # Do NOT run this script as root. Use a normal user with sudo rights.
+
+cat <<'EOF'
+This installer is provided without warranty.
+
+It may install packages, download third-party code, compile software,
+create symlinks, and modify user-level desktop/menu entries. Review the
+script before continuing. Use at your own risk.
+
+EOF
 
 set -euo pipefail
 

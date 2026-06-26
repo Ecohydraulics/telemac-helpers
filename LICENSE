@@ -1,6 +1,17 @@
-BSD 3-Clause License
+# License
 
-Copyright (c) 2020, Eco-hydraulics
+SPDX-License-Identifier: BSD-3-Clause
+
+Unless a file in this repository states otherwise, the source code, scripts,
+documentation snippets, and other repository contents are licensed under the
+BSD 3-Clause License below.
+
+The SPDX identifier above is provided for machine-readable license detection.
+The full license text below controls.
+
+## BSD 3-Clause License
+
+Copyright (c) 2026, Ecohydraulics
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -27,3 +38,71 @@ SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
 CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## Additional notice for installer and automation scripts
+
+This repository may contain installer scripts, build scripts, configuration
+helpers, shell commands, and documentation for installing or configuring
+third-party software. These materials are provided for informational,
+educational, and research-support purposes only.
+
+Installer and automation scripts may execute package-manager commands, request
+administrator privileges, install or remove packages, download third-party
+source code or binaries, compile software, create or modify files, create
+symbolic links, modify user-level shell or desktop/menu configuration, and
+otherwise change a user's computing environment. Such operations may fail, may
+be incompatible with a user's operating system, package repositories, compiler
+versions, hardware, local policies, or existing software installation, and may
+cause data loss, configuration conflicts, broken installations, downtime, or
+other technical problems.
+
+Users are solely responsible for reviewing and understanding any script before
+running it, maintaining backups, obtaining required administrative or
+institutional authorization, checking downloaded files and upstream sources,
+complying with all applicable third-party licenses and terms, and deciding
+whether a script is suitable for their system and purpose. Scripts should not
+be run on production systems, shared systems, institutional systems, safety-
+critical systems, or systems containing important data unless the user has the
+necessary expertise, authorization, backups, and recovery procedures.
+
+Third-party software, package repositories, external downloads, source-code
+repositories, web pages, documentation, and services referenced or accessed by
+these scripts are outside the control of the copyright holder and contributors.
+Such third-party materials remain subject to their own licenses, terms,
+security properties, availability, and maintenance practices. References to
+third-party projects, packages, repositories, products, or services do not imply
+endorsement, certification, support, warranty, or responsibility for those
+materials.
+
+The scripts, examples, documentation, and any generated or assisted simulation
+workflows do not constitute professional engineering advice, design
+verification, safety assessment, regulatory approval, or a substitute for
+independent expert judgment. Numerical models and software workflows may be
+wrong, incomplete, unstable, unsuitable, non-reproducible, or sensitive to input
+data, assumptions, discretization, compiler behavior, platform differences,
+third-party software changes, boundary conditions, solver settings, geometry
+processing, mesh generation, or other implementation details. No guarantee is
+made that any installation, calculation, model setup, simulation result, or
+derived decision is accurate, validated, reproducible, conservative, safe, or
+fit for any technical, scientific, engineering, regulatory, commercial, or
+safety-critical purpose.
+
+To the fullest extent permitted by applicable law, the copyright holder,
+contributors, maintainers, affiliated institutions, employers, funding bodies,
+sponsors, and any other parties involved in preparing or publishing the
+repository disclaim all warranties, representations, guarantees, duties, and
+conditions not expressly stated in writing, and shall not be liable for any
+losses or damages arising from or related to access to, reliance on, execution
+of, modification of, inability to use, or use of the repository materials,
+including but not limited to failed installations, data loss, loss of revenue,
+loss of profit, interruption of work, system failure, software conflicts,
+security incidents, incorrect calculations, incorrect simulation results,
+engineering errors, regulatory consequences, or third-party claims.
+
+Nothing in this notice or in the BSD 3-Clause License excludes or limits
+liability where such exclusion or limitation is not permitted by applicable law,
+including liability for intentional misconduct, gross negligence, injury to
+life, body, or health, mandatory statutory liability, product liability, or any
+other liability that cannot legally be excluded or limited. If any part of this
+notice is found to be invalid, unenforceable, or ineffective, the remaining
+parts remain effective to the greatest extent permitted by applicable law.
