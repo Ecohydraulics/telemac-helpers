@@ -190,7 +190,7 @@ Options:
   --salome-md5 FILE      Optional: .md5 file to verify SALOME tarball integrity
 
   --skip-apt             Do not install apt dependencies for TELEMAC or SALOME
-  --skip-compile         Do not run compile_telemac.py
+  --skip-compile         Do not run the CMake build (build_telemac.py)
   --verbose              Enable verbose output during compilation
   -h, --help             Show this help and exit
 
@@ -372,18 +372,6 @@ detect_system_med_root() {
   echo ""
 }
 
-detect_med_int_macro() {
-  # Pick the right HERMES preprocessor flag for the *system* MED integer width.
-  #   32-bit med_int (Ubuntu/Mint default) -> HAVE_MED
-  #   64-bit med_int                       -> HAVE_MED HAVE_MED64
-  # Determined from the C typedef in /usr/include/med.h.
-  if grep -qE 'typedef[[:space:]]+(long|long long|med_int64|int64_t)[[:space:]]+med_int[[:space:]]*;' /usr/include/med.h 2>/dev/null; then
-    echo "-DHAVE_MED -DHAVE_MED64"
-  else
-    echo "-DHAVE_MED"
-  fi
-}
-
 detect_salome_med_include() {
   # Locate a SALOME MED include dir (used only to borrow the missing Fortran
   # header med_parameter.hf; never linked against).
@@ -428,162 +416,117 @@ clone_telemac() {
   fi
 }
 
-create_cfg() {
-  local HOMETEL="$1"
-  local CFG_PATH="${HOMETEL}/configs/systel.mint22.cfg"
+# TELEMAC v9.1.x build directory name (under <HOMETEL>/builds). The CMake build
+# system (build_telemac.py) and the runtime config (config.py) are both pointed
+# at this directory via the BUILD_DIR environment variable set by pysource.
+BUILD_CFG_NAME="hyinfompiubu"
 
-  log "Creating TELEMAC configuration '${CFG_PATH}'..."
-  mkdir -p "${HOMETEL}/configs"
+# Set by setup_med_root(); consumed by run_compile() to toggle the 'med'
+# dependency for build_telemac.py.
+MED_ENABLED=0
+
+setup_med_root() {
+  # TELEMAC v9.1.x builds with CMake. Its FindMED.cmake locates MED through the
+  # MED_ROOT prefix (CMake CMP0074) and FATAL-ERRORs unless med.h, med.hf AND
+  # med_parameter.hf live in the same include directory. In addition, the HERMES
+  # source utils_med.F90 does `INCLUDE 'med.hf90'` (the free-form Fortran
+  # interface). Ubuntu/Mint's libmed-dev ships med.h + med.hf but OMITS both
+  # med_parameter.hf and med.hf90 (a packaging gap), so a plain MED_ROOT=/usr
+  # fails to configure and the hermes module fails to compile.
+  #
+  # We therefore assemble a private MED prefix under <HOMETEL>/configs/med_root
+  # that points back at the SYSTEM MED (symlinked headers + libmed) and adds the
+  # missing Fortran includes (med_parameter.hf, med.hf90) borrowed from a local
+  # SALOME install. These are interface/constant declarations, and SALOME's MED
+  # (4.2) is API-compatible with the system MED (4.1) for the subset TELEMAC
+  # uses; the system med.h is kept so FindMED reports the real 4.1 version and
+  # CMake links the system libmed (which NEEDs libhdf5_openmpi, so the OpenMPI
+  # HDF5 build is pulled in transitively, with no serial-vs-openmpi ABI clash).
+  local HOMETEL="$1"
+  MED_ENABLED=0
 
   local SYSTEM_MED_ROOT
   SYSTEM_MED_ROOT="$(detect_system_med_root)"
-
-  local SYS_MED_LIB
-  SYS_MED_LIB="$(multiarch_libdir)"
-
-  local MED_ENABLED=0
-  local MED_INC_BLOCK=""
-  local MED_LIB_BLOCK=""
-  local MED_INCS_ALL=""
-  local MED_LIBS_ALL=""
-  local MED_OPTIONS=""
-  local MED_FFLAGS=""
-  local MED_CFLAGS=""
-
-  if [ -n "$SYSTEM_MED_ROOT" ]; then
-    log "Using system MED libraries in /usr (libdir: ${SYS_MED_LIB}); enabling MED support."
-
-    local MEDIMPORT_FLAG=""
-    if ls "${SYS_MED_LIB}/libmedimport.so"* >/dev/null 2>&1; then
-      MEDIMPORT_FLAG=" -lmedimport"
-    fi
-
-    # Ubuntu's libmed-dev ships med.hf but NOT med_parameter.hf (packaging gap).
-    # med.hf does `include "med_parameter.hf"`, so without it the HERMES MED
-    # sources will not preprocess. med_parameter.hf is constants only (no ABI),
-    # so borrowing it from a local SALOME install is safe.
-    local MED_INC_DIR="/usr/include"
-    if [ ! -f "/usr/include/med_parameter.hf" ]; then
-      warn "System MED package is missing the Fortran header 'med_parameter.hf'."
-      local SALOME_MED_INC
-      SALOME_MED_INC="$(detect_salome_med_include)"
-      if [ -n "$SALOME_MED_INC" ]; then
-        local MED_PATCH_DIR="${HOMETEL}/configs/med_include"
-        mkdir -p "$MED_PATCH_DIR"
-        log "Borrowing missing MED Fortran header from SALOME ('$SALOME_MED_INC')..."
-        for hf in med_parameter.hf; do
-          if [ -f "${SALOME_MED_INC}/${hf}" ]; then
-            cp "${SALOME_MED_INC}/${hf}" "$MED_PATCH_DIR/"
-            log "  Copied ${hf} -> ${MED_PATCH_DIR}"
-          fi
-        done
-        # Patched dir first so its med_parameter.hf is found; system /usr/include
-        # still provides med.hf and the C headers.
-        MED_INC_DIR="${MED_PATCH_DIR} -I /usr/include"
-      else
-        warn "Could not find med_parameter.hf in any SALOME install."
-        warn "MED Fortran support will likely fail to compile. Options:"
-        warn "  1. Install SALOME (--salome-tar ...) and rerun, OR"
-        warn "  2. Drop 'med' from the 'options:' line in ${CFG_PATH}."
-      fi
-    fi
-
-    MED_INC_BLOCK="inc_med:       -I ${MED_INC_DIR}"
-    MED_LIB_BLOCK="libs_med:      -L ${SYS_MED_LIB} -lmedC -lmed${MEDIMPORT_FLAG}"
-    MED_INCS_ALL="[inc_med] "
-    MED_LIBS_ALL="[libs_med] "
-    MED_OPTIONS=" med"
-    MED_FFLAGS=" $(detect_med_int_macro)"
-    MED_CFLAGS=" $(detect_med_int_macro)"
-    MED_ENABLED=1
-    log "MED preprocessor flags:${MED_FFLAGS}"
-  else
-    warn "System MED not found; cfg will be generated WITHOUT MED support."
+  if [ -z "$SYSTEM_MED_ROOT" ]; then
+    warn "System MED not found; TELEMAC will be built WITHOUT MED support."
     warn "Install it with: sudo apt-get install libmedc-dev libmed-dev libmedimport-dev libmed-tools"
+    return 0
   fi
 
-  cat > "$CFG_PATH" <<EOF
-# _____                              _______________________________
-# ____/ TELEMAC Project Definitions /______________________________/
-#
-[Configurations]
-configs: hyinfompiubu
-#
-# _____          _________________________________________________
-# ____/ General /_________________________________________________/
-#
-[general]
-language: 2
-modules:  system stbtel telemac2d telemac3d tomawac artemis gaia nestor khione waqtel postel3d hermes special
-version:  9.1
-options:  mpi dyn${MED_OPTIONS}
-hash_char: #
-# Suffixes
-sfx_zip:  .tar.gz
-sfx_lib:  .a
-sfx_obj:  .o
-sfx_exe:
-sfx_mod:  .mod
-# Validation paths
-val_root:      <root>/examples
-val_rank:      all
-# Compilers
-cc:      mpicc
-cflags:  -fPIC -O3${MED_CFLAGS}
-fc:      mpifort
-fflags:  -cpp -O3 -fPIC -fconvert=big-endian -frecord-marker=4 -DHAVE_MPI${MED_FFLAGS}
-cmd_obj_c: [cc] [cflags] -c <srcName> -o <objName>
-cmd_obj:   [fc] [fflags] -c <mods> <incs> <f95name>
-cmd_lib:   ar crs <libname> <objs>
-cmd_exe:   [fc] [fflags] -o <exename> <objs> <libs>
-par_cmdexec:   <config>/partel < <partel.par> >> <partel.log>
-mpi_cmdexec:   mpirun -np <ncsize> <exename>
+  local libdir
+  libdir="$(multiarch_libdir)"
 
-# MPI headers (OpenMPI)
-inc_mpi:       -I /usr/lib/x86_64-linux-gnu/openmpi/include
+  local med_root="${HOMETEL}/configs/med_root"
+  local med_inc="${med_root}/include"
+  local med_lib="${med_root}/lib"
 
-# HDF5 (OpenMPI build via libhdf5-openmpi-dev).
-# IMPORTANT: the Ubuntu/Mint system MED (libmedC) links libhdf5_openmpi, so
-# TELEMAC must use the SAME (openmpi) HDF5 to avoid loading two HDF5 builds.
-inc_hdf5:  -I /usr/include/hdf5/openmpi
-libs_hdf5: -L /usr/lib/x86_64-linux-gnu/hdf5/openmpi -lhdf5_fortran -lhdf5hl_fortran -lhdf5_hl -lhdf5
+  log "Setting up private MED prefix at '${med_root}' (links system MED in /usr)..."
+  rm -rf "${med_root}"
+  mkdir -p "${med_inc}" "${med_lib}"
 
-# MED-fichier (system packages, optional)
-$MED_INC_BLOCK
-$MED_LIB_BLOCK
+  # Symlink the system MED headers (med.h pulls in medfield.h, medparameter.h, …)
+  local got_header=0
+  shopt -s nullglob
+  local f
+  for f in /usr/include/med*.h /usr/include/med*.hf; do
+    ln -sf "$f" "${med_inc}/"
+    got_header=1
+  done
+  shopt -u nullglob
+  if [ "$got_header" -eq 0 ]; then
+    warn "No MED headers found in /usr/include despite libmed present; building WITHOUT MED."
+    rm -rf "${med_root}"
+    return 0
+  fi
 
-# METIS
-inc_metis:     -I /usr/include
-libs_metis:    -L /usr/lib/x86_64-linux-gnu -lmetis
+  # Provide the Fortran includes that Ubuntu's libmed-dev omits but TELEMAC
+  # needs: med_parameter.hf (pulled in by med.hf / med.hf90) and med.hf90 (the
+  # free-form interface included by hermes' utils_med.F90). Borrow them from a
+  # local SALOME install (cached under configs/med_include for reuse).
+  local SALOME_MED_INC=""
+  local MED_CACHE="${HOMETEL}/configs/med_include"
+  local hf
+  for hf in med_parameter.hf med.hf90; do
+    [ -e "${med_inc}/${hf}" ] && continue
+    warn "System MED is missing the Fortran header '${hf}' (packaging gap)."
+    local src=""
+    if [ -f "${MED_CACHE}/${hf}" ]; then
+      src="${MED_CACHE}/${hf}"
+    else
+      [ -n "${SALOME_MED_INC}" ] || SALOME_MED_INC="$(detect_salome_med_include)"
+      [ -n "${SALOME_MED_INC}" ] && [ -f "${SALOME_MED_INC}/${hf}" ] && \
+        src="${SALOME_MED_INC}/${hf}"
+    fi
+    if [ -n "$src" ]; then
+      mkdir -p "${MED_CACHE}"
+      # Cache for future runs (skip if the source already IS the cached copy).
+      [ "$src" -ef "${MED_CACHE}/${hf}" ] || cp "$src" "${MED_CACHE}/${hf}"
+      cp "$src" "${med_inc}/${hf}"
+      log "  Provided ${hf} from '${src}'."
+    else
+      warn "Could not find ${hf} (system gap, no SALOME copy)."
+      warn "MED cannot be built. Options:"
+      warn "  1. Install SALOME (--salome-tar ...) and rerun, OR"
+      warn "  2. Continue without MED (no .med I/O)."
+      rm -rf "${med_root}"
+      return 0
+    fi
+  done
 
-# MUMPS + ScaLAPACK
-inc_mumps:     -I /usr/include
-libs_mumps:    -L /usr/lib/x86_64-linux-gnu -ldmumps -lmumps_common -lpord -lscalapack-openmpi -lblas -llapack
+  # Symlink the MED libraries. CMake links 'med'; medC/medimport are provided
+  # for completeness and runtime resolution.
+  local base
+  for base in libmed libmedC libmedimport; do
+    [ -e "${libdir}/${base}.so" ] && ln -sf "${libdir}/${base}.so" "${med_lib}/"
+  done
+  if [ ! -e "${med_lib}/libmed.so" ]; then
+    warn "libmed.so not found in ${libdir}; building WITHOUT MED."
+    rm -rf "${med_root}"
+    return 0
+  fi
 
-incs_all: [inc_mpi] [inc_hdf5] ${MED_INCS_ALL}[inc_metis] [inc_mumps]
-libs_all: ${MED_LIBS_ALL}[libs_hdf5] [libs_metis] [libs_mumps]
-mods_all: -I <config>
-
-[hyinfompiubu]
-brief: Linux Mint 22 / Ubuntu 24.04 gfortran + OpenMPI + HDF5 + METIS + MUMPS/ScaLAPACK$( [ "$MED_ENABLED" -eq 1 ] && printf " + MED" || printf "" )
-system: linux
-mpi:   openmpi
-compiler: gfortran
-pyd_fcompiler: gnu95
-f2py_name: f2py
-bin_dir: <root>/builds/hyinfompiubu/bin
-lib_dir: <root>/builds/hyinfompiubu/lib
-obj_dir: <root>/builds/hyinfompiubu/obj
-options: mpi dyn${MED_OPTIONS}
-cmd_obj:   [fc] [fflags] -c <mods> <incs> <f95name>
-cmd_lib:   ar crs <libname> <objs>
-cmd_exe:   [fc] [fflags] -o <exename> <objs> <libs>
-mods_all:  -I <config>
-incs_all:  [inc_mpi] [inc_hdf5] ${MED_INCS_ALL}[inc_metis] [inc_mumps]
-libs_all:  ${MED_LIBS_ALL}[libs_hdf5] [libs_metis] [libs_mumps]
-ldflags_opt:   -Wl,-rpath,/usr/lib/x86_64-linux-gnu/hdf5/openmpi
-ldflags_debug: -Wl,-rpath,/usr/lib/x86_64-linux-gnu/hdf5/openmpi
-EOF
+  MED_ENABLED=1
+  log "MED prefix ready (include + lib populated); MED support enabled."
 }
 
 create_pysource() {
@@ -595,28 +538,33 @@ create_pysource() {
 
   cat > "$PYSOURCE_PATH" <<'EOF'
 #!/usr/bin/env bash
-# TELEMAC environment for Linux Mint 22 / Ubuntu 24.04 (noble)
+# TELEMAC v9.1.x environment for Linux Mint 22 / Ubuntu 24.04 (noble)
 # OpenMPI + HDF5(openmpi) + system MED + METIS + MUMPS/ScaLAPACK.
 #
-# MED note: TELEMAC is built against the SYSTEM MED (/usr). If SALOME is
-# installed, its bundled MED has a different ABI (64-bit med_int, possibly a
-# different HDF5) and MUST NOT be on LD_LIBRARY_PATH at runtime, or you get
-# HERMES_WRONG_MED_FORMAT_ERR. This script strips SALOME MED/HDF5 from the
-# runtime path defensively.
+# v9.1 builds with CMake (build_telemac.py), not the legacy systel.cfg +
+# compile_telemac.py flow. The build and runtime are tied together by BUILD_DIR;
+# the runtime config (config.py / telemac2d.py ...) reads the systel.cfg that
+# CMake generates inside BUILD_DIR. MED is located by CMake through MED_ROOT.
+#
+# MED note: TELEMAC links the SYSTEM MED (via the MED_ROOT prefix below, which
+# points back at /usr). If SALOME is installed, its bundled MED has a different
+# ABI and MUST NOT be on LD_LIBRARY_PATH at runtime, or you get
+# HERMES_WRONG_MED_FORMAT_ERR. This script strips SALOME MED/HDF5 from the path.
 
 _THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export HOMETEL="$(cd "${_THIS_DIR}/.." && pwd)"
 export SOURCEFILE="${_THIS_DIR}"
 
-export SYSTELCFG="${HOMETEL}/configs/systel.mint22.cfg"
-export USETELCFG="hyinfompiubu"
+# CMake build settings used by build_telemac.py and config.py.
+export BUILD_TYPE="Release"
+export BUILD_DIR="${HOMETEL}/builds/hyinfompiubu"
 
 : "${LD_LIBRARY_PATH:=}"
 : "${CPATH:=}"
 : "${PYTHONPATH:=}"
 
-# TELEMAC helper scripts on PATH
-for _d in "${HOMETEL}/scripts/python3" "${HOMETEL}/scripts/unix" "${HOMETEL}/builds/${USETELCFG}/bin"; do
+# TELEMAC helper scripts and built executables on PATH
+for _d in "${HOMETEL}/scripts/python3" "${HOMETEL}/scripts/unix" "${BUILD_DIR}/bin"; do
   if [ -d "${_d}" ]; then
     case ":${PATH}:" in
       *:"${_d}":*) ;;
@@ -630,43 +578,36 @@ _archlib="/usr/lib/${_arch}"
 
 _first_dir() { for _d in "$@"; do [ -d "$_d" ] && { printf '%s' "$_d"; return 0; }; done; return 1; }
 
-# Compilers / MPI
+# Compilers / MPI. CMake's find_package(MPI) handles MPI include/link via the
+# system gfortran toolchain, so the Fortran compiler stays gfortran.
 export MPI_ROOT="/usr"
-export CC="mpicc"
-export FC="mpifort"
 export MPIRUN="mpirun"
-_MPI_BIN="$(dirname "$(command -v mpif90 2>/dev/null || command -v mpifort 2>/dev/null || command -v mpicc 2>/dev/null || echo /usr/bin/mpif90)")"
 _MPI_INC="$(_first_dir "${_archlib}/openmpi/include" "/usr/include/openmpi")"
 _MPI_LIB="$(_first_dir "${_archlib}/openmpi/lib" "${_archlib}")"
 
-# HDF5 (openmpi build, to match system MED's HDF5 dependency)
+# HDF5 (openmpi build, to match the system MED's HDF5 dependency)
 _HDF5_INC="$(_first_dir "/usr/include/hdf5/openmpi" "/usr/include/hdf5/serial")"
 _HDF5_LIB="$(_first_dir "${_archlib}/hdf5/openmpi" "${_archlib}/hdf5/serial" "${_archlib}")"
 
-# MED (system only)
-_MED_INC=""
+# MED: point CMake (FindMED.cmake, CMP0074) at the private MED prefix that the
+# installer assembled (system MED headers + libmed + the missing
+# med_parameter.hf). Only set it if that prefix exists.
+if [ -d "${HOMETEL}/configs/med_root/include" ]; then
+  export MED_ROOT="${HOMETEL}/configs/med_root"
+fi
 _MED_LIB=""
-[ -e "/usr/include/med.h" ] && _MED_INC="/usr/include"
 if [ -e "${_archlib}/libmedC.so" ] || ls "${_archlib}/libmedC.so"* >/dev/null 2>&1; then
   _MED_LIB="${_archlib}"
 fi
 
-# METIS / MUMPS / ScaLAPACK
-_METIS_INC="$(_first_dir "/usr/include")"
+# METIS / MUMPS / ScaLAPACK (system)
+export METIS_ROOT="/usr"; export MUMPS_ROOT="/usr"
 _METIS_LIB="$(_first_dir "${_archlib}")"
-_MUMPS_INC="$(_first_dir "/usr/include")"
 _MUMPS_LIB="$(_first_dir "${_archlib}")"
 _SCALAPACK_LIB="$(_first_dir "${_archlib}")"
 
-# Convenience env hints (non-fatal if unused)
-export MPI_INCLUDE="${_MPI_INC}"; export MPI_LIBDIR="${_MPI_LIB}"
-export HDF5_ROOT="/usr"; export HDF5_INCLUDE_PATH="${_HDF5_INC}"; export HDF5_LIBDIR="${_HDF5_LIB}"
-[ -n "${_MED_INC}" ] && export MED_INCLUDE_PATH="${_MED_INC}"
-[ -n "${_MED_LIB}" ] && export MED_LIBDIR="${_MED_LIB}"
-export METIS_ROOT="/usr"; export MUMPS_ROOT="/usr"
-
-# LD_LIBRARY_PATH (system dirs)
-for _libdir in "${_MPI_LIB}" "${_HDF5_LIB}" "${_SCALAPACK_LIB}" "${_MUMPS_LIB}" "${_METIS_LIB}" "${_MED_LIB}" "${_archlib}"; do
+# LD_LIBRARY_PATH: built TELEMAC shared libs first, then MED prefix, then system.
+for _libdir in "${BUILD_DIR}/lib" "${MED_ROOT:+${MED_ROOT}/lib}" "${_MPI_LIB}" "${_HDF5_LIB}" "${_SCALAPACK_LIB}" "${_MUMPS_LIB}" "${_METIS_LIB}" "${_MED_LIB}" "${_archlib}"; do
   [ -n "${_libdir}" ] || continue
   case ":${LD_LIBRARY_PATH}:" in
     *:"${_libdir}":*) ;;
@@ -704,7 +645,7 @@ for _salome_search in "${_ROOT_DIR}/salome" "$HOME/opt/salome"; do
 done
 
 # CPATH
-for _incdir in "${_MPI_INC}" "${_HDF5_INC}" "${_MED_INC}" "${_METIS_INC}" "${_MUMPS_INC}"; do
+for _incdir in "${_MPI_INC}" "${_HDF5_INC}" "${MED_ROOT:+${MED_ROOT}/include}"; do
   [ -n "${_incdir}" ] || continue
   case ":${CPATH}:" in
     *:"${_incdir}":*) ;;
@@ -712,19 +653,19 @@ for _incdir in "${_MPI_INC}" "${_HDF5_INC}" "${_MED_INC}" "${_METIS_INC}" "${_MU
   esac
 done
 
-# TELEMAC Python API (TelApy) if built
-_wrap_api_lib="${HOMETEL}/builds/${USETELCFG}/wrap_api/lib"
-if [ -d "${_wrap_api_lib}" ]; then
-  case ":${PYTHONPATH}:" in *:"${_wrap_api_lib}":*) ;; *) export PYTHONPATH="${_wrap_api_lib}:${PYTHONPATH}";; esac
-  case ":${LD_LIBRARY_PATH}:" in *:"${_wrap_api_lib}":*) ;; *) export LD_LIBRARY_PATH="${_wrap_api_lib}:${LD_LIBRARY_PATH}";; esac
-fi
-if [ -d "${HOMETEL}/scripts/python3" ]; then
-  case ":${PYTHONPATH}:" in *:"${HOMETEL}/scripts/python3":*) ;; *) export PYTHONPATH="${HOMETEL}/scripts/python3:${PYTHONPATH}";; esac
-fi
+# Python: TELEMAC scripts + the compiled extensions (TelApy '_api', '_hermes')
+# that CMake places in BUILD_DIR/lib.
+for _pydir in "${HOMETEL}/scripts/python3" "${BUILD_DIR}/lib"; do
+  [ -d "${_pydir}" ] || continue
+  case ":${PYTHONPATH}:" in
+    *:"${_pydir}":*) ;;
+    *) export PYTHONPATH="${_pydir}:${PYTHONPATH}";;
+  esac
+done
 
-echo "TELEMAC set: HOMETEL='${HOMETEL}', SYSTELCFG='${SYSTELCFG}', USETELCFG='${USETELCFG}'"
+echo "TELEMAC set: HOMETEL='${HOMETEL}', BUILD_DIR='${BUILD_DIR}', BUILD_TYPE='${BUILD_TYPE}'"
 echo "HDF5 inc='${_HDF5_INC}', HDF5 lib='${_HDF5_LIB}'"
-[ -n "${_MED_LIB}" ] && echo "MED lib='${_MED_LIB}' (system)"
+[ -n "${MED_ROOT:-}" ] && echo "MED_ROOT='${MED_ROOT}' (system MED via private prefix)"
 
 export PYTHONUNBUFFERED="1"
 EOF
@@ -734,7 +675,7 @@ EOF
 
 verify_telemac_build() {
   local HOMETEL="$1"
-  local BUILD_BIN="${HOMETEL}/builds/hyinfompiubu/bin"
+  local BUILD_BIN="${HOMETEL}/builds/${BUILD_CFG_NAME}/bin"
 
   log "Verifying TELEMAC build artifacts..."
   if [ ! -d "${BUILD_BIN}" ]; then
@@ -742,15 +683,17 @@ verify_telemac_build() {
     return 1
   fi
 
+  # In v9.1.x several former modules (gaia, waqtel, khione, nestor, ...) are
+  # built as libraries linked into the solvers, not standalone executables.
   local missing_exes=()
-  local required_exes=("stbtel" "telemac2d" "telemac3d" "tomawac" "artemis" "gaia" "partel" "gretel")
+  local required_exes=("stbtel" "telemac2d" "telemac3d" "tomawac" "artemis" "postel3d" "partel" "gretel")
   for exe in "${required_exes[@]}"; do
     [ -f "${BUILD_BIN}/${exe}" ] || missing_exes+=("$exe")
   done
 
   if [ ${#missing_exes[@]} -gt 0 ]; then
     warn "Missing executables in ${BUILD_BIN}: ${missing_exes[*]}"
-    warn "Re-run with --verbose, or: source configs/pysource.mint22.sh && compile_telemac.py -v"
+    warn "Re-run, or: source configs/pysource.mint22.sh && build_telemac.py --rebuild"
     return 1
   fi
 
@@ -766,28 +709,34 @@ run_compile() {
     return
   fi
 
-  log "Running TELEMAC config and compile steps (10-30 min)..."
+  log "Building TELEMAC v9.1.x with CMake via build_telemac.py (10-30 min)..."
 
   # Avoid MPI/X11 authorization issues during compilation.
   unset DISPLAY
 
-  local verbose_flag=""
-  [ "$VERBOSE" -eq 1 ] && verbose_flag="-v"
+  # Dependencies enabled for the CMake build. METIS is implicit with MPI.
+  # AED2 and GOTM are left off (not installed system-wide; they are REQUIRED by
+  # CMake when enabled and would abort configuration).
+  local deps="mpi mumps"
+  [ "$MED_ENABLED" -eq 1 ] && deps="${deps} med"
+
+  local jobs
+  jobs="$(nproc 2>/dev/null || echo 4)"
 
   local compile_status=0
   bash -lc "
     set -euo pipefail
     cd \"$HOMETEL\"
     source \"$HOMETEL/configs/pysource.mint22.sh\"
-    echo '[*] Running config.py ...'
-    config.py
-    echo '[*] Running compile_telemac.py --clean ...'
-    compile_telemac.py --clean $verbose_flag
+    echo '[*] Running build_telemac.py --rebuild --deps ${deps} -j ${jobs} ...'
+    build_telemac.py --rebuild --deps ${deps} -j ${jobs}
+    echo '[*] Displaying configuration (config.py) ...'
+    config.py || true
   " || compile_status=$?
 
   [ "$compile_status" -eq 0 ] || die "TELEMAC compilation failed (exit $compile_status). See errors above."
 
-  log "TELEMAC compilation command completed."
+  log "TELEMAC build command completed."
   if ! verify_telemac_build "$HOMETEL"; then
     warn "Build verification found issues; TELEMAC may not work correctly."
   else
@@ -817,12 +766,12 @@ main() {
   local HOMETEL
   HOMETEL="$(cd "${ROOT_DIR}/telemac-mascaret" && pwd)"
 
-  create_cfg "$HOMETEL"
+  # Assemble the private MED prefix (sets MED_ENABLED) BEFORE generating the
+  # environment script and building, so build_telemac.py can find MED via
+  # MED_ROOT.
+  setup_med_root "$HOMETEL"
   create_pysource "$HOMETEL"
   run_compile "$HOMETEL"
-
-  local SYSTEM_MED_ROOT
-  SYSTEM_MED_ROOT="$(detect_system_med_root)"
 
   log "Installation finished."
   echo
@@ -831,12 +780,14 @@ main() {
   echo "  source pysource.mint22.sh"
   echo "  telemac2d.py --help"
   echo
-  if [ -n "$SYSTEM_MED_ROOT" ]; then
-    echo "MED support: enabled (system MED in /usr; SALOME-bundled MED is not used)."
+  if [ "$MED_ENABLED" -eq 1 ]; then
+    echo "MED support: enabled (system MED in /usr via the configs/med_root prefix;"
+    echo "             SALOME-bundled MED is not used)."
   else
-    echo "MED support: NOT detected. Install and recompile:"
+    echo "MED support: NOT enabled. Install MED (and, if needed, SALOME for the"
+    echo "             missing med_parameter.hf header) and rebuild:"
     echo "  sudo apt-get install libmedc-dev libmed-dev libmedimport-dev libmed-tools"
-    echo "  source pysource.mint22.sh && config.py && compile_telemac.py --clean"
+    echo "  ./telemac_ubuntu24_installer.sh --skip-apt   # re-runs setup + build"
   fi
 }
 

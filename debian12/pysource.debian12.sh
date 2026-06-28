@@ -1,115 +1,131 @@
 #!/usr/bin/env bash
-# TELEMAC environment for Debian 12 with MPI/HDF5/MED/METIS/MUMPS/ScaLAPACK
-# Assumes all optional dependencies are installed from from apt on Debian 12
-# Only SALOME is user-installed
+# TELEMAC v9.1.x environment for Debian 12
+# OpenMPI + HDF5 + system MED + METIS + MUMPS/ScaLAPACK.
+#
+# v9.1 builds with CMake (build_telemac.py), not the legacy systel.cfg +
+# compile_telemac.py flow. The build and runtime are tied together by BUILD_DIR;
+# the runtime config (config.py / telemac2d.py ...) reads the systel.cfg that
+# CMake generates inside BUILD_DIR. MED is located by CMake through MED_ROOT.
+#
+# MED note: TELEMAC links the SYSTEM MED (via the MED_ROOT prefix below, which
+# points back at /usr). If SALOME is installed, its bundled MED has a different
+# ABI and MUST NOT be on LD_LIBRARY_PATH at runtime, or you get
+# HERMES_WRONG_MED_FORMAT_ERR. This script strips SALOME MED/HDF5 from the path.
 
-# Resolve script directory and HOMETEL from it
 _THIS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export HOMETEL="$(cd "${_THIS_DIR}/.." && pwd)"
 export SOURCEFILE="${_THIS_DIR}"
 
-# Configuration file and config name used by telemac.py
-# Adjust USETELCFG to match a section present in configs/systel.debian12.cfg
-export SYSTELCFG="${HOMETEL}/configs/systel.debian12.cfg"
-export USETELCFG="hyinfompideb12"
+# CMake build settings used by build_telemac.py and config.py.
+export BUILD_TYPE="Release"
+export BUILD_DIR="${HOMETEL}/builds/hyinfompideb12"
 
-# Make TELEMAC Python utilities available
-if [ -d "${HOMETEL}/scripts/python3" ]; then
-    case ":${PATH}:" in *:"${HOMETEL}/scripts/python3":*) ;; *) export PATH="${HOMETEL}/scripts/python3:${PATH}";; esac
-fi
-if [ -d "${HOMETEL}/scripts/unix" ]; then
-  case ":${PATH}:" in *:"${HOMETEL}/scripts/unix":*) ;; *) export PATH="${HOMETEL}/scripts/unix:${PATH}";; esac
-fi
+: "${LD_LIBRARY_PATH:=}"
+: "${CPATH:=}"
+: "${PYTHONPATH:=}"
 
-# Detect Debian multiarch lib directory and common include roots
+# TELEMAC helper scripts and built executables on PATH
+for _d in "${HOMETEL}/scripts/python3" "${HOMETEL}/scripts/unix" "${BUILD_DIR}/bin"; do
+  if [ -d "${_d}" ]; then
+    case ":${PATH}:" in
+      *:"${_d}":*) ;;
+      *) export PATH="${_d}:${PATH}";;
+    esac
+  fi
+done
+
 _arch="$(gcc -dumpmachine 2>/dev/null || echo x86_64-linux-gnu)"
 _archlib="/usr/lib/${_arch}"
 
-# Helper to pick the first existing directory
-_first_dir() {
-  for _d in "$@"; do
-    [ -d "$_d" ] && { printf '%s' "$_d"; return 0; }
-  done
-  return 1
-}
+_first_dir() { for _d in "$@"; do [ -d "$_d" ] && { printf '%s' "$_d"; return 0; }; done; return 1; }
 
-# MPI. Prefer OpenMPI wrappers if present
+# Compilers / MPI. CMake's find_package(MPI) handles MPI include/link via the
+# system gfortran toolchain, so the Fortran compiler stays gfortran.
+export MPI_ROOT="/usr"
+export MPIRUN="mpirun"
 _MPI_BIN="$(dirname "$(command -v mpif90 2>/dev/null || command -v mpifort 2>/dev/null || command -v mpicc 2>/dev/null || echo /usr/bin/mpif90)")"
-_MPI_INC="$(_first_dir \
-  "${_archlib}/openmpi/include" \
-  "/usr/include/openmpi" \
-  "/usr/include/mpi" \
-  "${_archlib}/mpi/include")"
-_MPI_LIB="$(_first_dir \
-  "${_archlib}/openmpi/lib" \
-  "${_archlib}" \
-  "/usr/lib")"
+_MPI_INC="$(_first_dir "${_archlib}/openmpi/include" "/usr/include/openmpi" "/usr/include/mpi")"
+_MPI_LIB="$(_first_dir "${_archlib}/openmpi/lib" "${_archlib}" "/usr/lib")"
 
-# HDF5 parallel. Debian installs OpenMPI-flavored headers in /usr/include/hdf5/openmpi
-_HDF5_INC="$(_first_dir \
-  "/usr/include/hdf5/openmpi" \
-  "/usr/include/hdf5/serial")"
-_HDF5_LIB="$(_first_dir \
-  "${_archlib}/hdf5/openmpi" \
-  "${_archlib}/hdf5/serial" \
-  "${_archlib}")"
+# HDF5 (pulled in transitively by libmed; these are runtime hints only)
+_HDF5_INC="$(_first_dir "/usr/include/hdf5/openmpi" "/usr/include/hdf5/serial")"
+_HDF5_LIB="$(_first_dir "${_archlib}/hdf5/openmpi" "${_archlib}/hdf5/serial" "${_archlib}")"
 
-# MED-fichier
-export _MED_ROOT="$HOME/opt/salome/BINARIES-DB12/medfile/"
-export _MED_INC="$HOME/opt/salome/BINARIES-DB12/medfile/include"
-export _MED_LIB="$HOME/opt/salome/BINARIES-DB12/medfile/lib"
+# MED: point CMake (FindMED.cmake, CMP0074) at the private MED prefix that the
+# installer assembled (system MED headers + libmed + the missing
+# med_parameter.hf / med.hf90). Only set it if that prefix exists.
+if [ -d "${HOMETEL}/configs/med_root/include" ]; then
+  export MED_ROOT="${HOMETEL}/configs/med_root"
+fi
+_MED_LIB=""
+if [ -e "${_archlib}/libmedC.so" ] || ls "${_archlib}/libmedC.so"* >/dev/null 2>&1; then
+  _MED_LIB="${_archlib}"
+fi
 
-# METIS and ParMETIS
-_METIS_INC="$(_first_dir "/usr/include")"
+# METIS / MUMPS / ScaLAPACK (system)
+export METIS_ROOT="/usr"; export MUMPS_ROOT="/usr"
 _METIS_LIB="$(_first_dir "${_archlib}")"
-_PARMETIS_INC="$(_first_dir "/usr/include")"
-_PARMETIS_LIB="$(_first_dir "${_archlib}")"
-
-# MUMPS and ScaLAPACK
-_MUMPS_INC="$(_first_dir "/usr/include/mumps" "/usr/include")"
 _MUMPS_LIB="$(_first_dir "${_archlib}")"
 _SCALAPACK_LIB="$(_first_dir "${_archlib}")"
 
-# Add useful binaries to PATH
-for _bindir in \
-  "${_MPI_BIN}" \
-  "/usr/bin"
-do
-  case ":${PATH}:" in *:"${_bindir}":*) ;; *) export PATH="${_bindir}:${PATH}";; esac
-done
-
-# Library search path
-for _libdir in \
-  "${_MPI_LIB}" \
-  "${_HDF5_LIB}" \
-  "${_SCALAPACK_LIB}" \
-  "${_MUMPS_LIB}" \
-  "${_METIS_LIB}" \
-  "${_PARMETIS_LIB}" \
-  "${_MED_LIB}"
-do
+# LD_LIBRARY_PATH: built TELEMAC shared libs first, then MED prefix, then system.
+for _libdir in "${BUILD_DIR}/lib" "${MED_ROOT:+${MED_ROOT}/lib}" "${_MPI_LIB}" "${_HDF5_LIB}" "${_SCALAPACK_LIB}" "${_MUMPS_LIB}" "${_METIS_LIB}" "${_MED_LIB}" "${_archlib}"; do
   [ -n "${_libdir}" ] || continue
-  case ":${LD_LIBRARY_PATH}:" in *:"${_libdir}":*) ;; *) export LD_LIBRARY_PATH="${_libdir}:${LD_LIBRARY_PATH}";; esac
+  case ":${LD_LIBRARY_PATH}:" in
+    *:"${_libdir}":*) ;;
+    *) export LD_LIBRARY_PATH="${_libdir}:${LD_LIBRARY_PATH}";;
+  esac
 done
 
-# Include search path for some build helpers that honor CPATH
-for _incdir in \
-  "${_MPI_INC}" \
-  "${_HDF5_INC}" \
-  "${_MED_INC}" \
-  "${_METIS_INC}" \
-  "${_PARMETIS_INC}" \
-  "${_MUMPS_INC}"
-do
+# Detect a SALOME install and SCRUB its MED/HDF5 from LD_LIBRARY_PATH to avoid
+# ABI clashes with the system MED that TELEMAC was compiled against.
+_ROOT_DIR="$(cd "${HOMETEL}/.." && pwd)"
+for _salome_search in "${_ROOT_DIR}/salome" "$HOME/opt/salome"; do
+  [ -d "${_salome_search}" ] || continue
+  _salome_med="$(find "${_salome_search}" -maxdepth 6 -type d -name medfile 2>/dev/null | head -n 1)"
+  if [ -n "${_salome_med}" ]; then
+    _remove_prefixes=("${_salome_med}/lib")
+    _salome_hdf5="$(dirname "${_salome_med}")/hdf5/lib"
+    [ -d "${_salome_hdf5}" ] && _remove_prefixes+=("${_salome_hdf5}")
+
+    _new=""
+    _IFS_old="$IFS"; IFS=':'
+    for _p in $LD_LIBRARY_PATH; do
+      _skip=0
+      for _bad in "${_remove_prefixes[@]}"; do
+        case "${_p}" in "${_bad}"|"${_bad}/"*) _skip=1; break;; esac
+      done
+      [ "${_skip}" -eq 1 ] && continue
+      [ -z "${_new}" ] && _new="${_p}" || _new="${_new}:${_p}"
+    done
+    IFS="${_IFS_old}"
+    export LD_LIBRARY_PATH="${_new}"
+    echo "[WARN] SALOME at '${_salome_search}': removed its MED/HDF5 from LD_LIBRARY_PATH (using system MED)."
+  fi
+  break
+done
+
+# CPATH
+for _incdir in "${_MPI_INC}" "${_HDF5_INC}" "${MED_ROOT:+${MED_ROOT}/include}"; do
   [ -n "${_incdir}" ] || continue
-  case ":${CPATH}:" in *:"${_incdir}":*) ;; *) export CPATH="${_incdir}:${CPATH}";; esac
+  case ":${CPATH}:" in
+    *:"${_incdir}":*) ;;
+    *) export CPATH="${_incdir}:${CPATH}";;
+  esac
 done
 
-# Convenience: print a one-line summary
-echo "TELEMAC set: HOMETEL='${HOMETEL}', SYSTELCFG='${SYSTELCFG}', USETELCFG='${USETELCFG}'"
-echo "MPI bin='${_MPI_BIN}', MPI inc='${_MPI_INC}', MPI lib='${_MPI_LIB}'"
-echo "HDF5 inc='${_HDF5_INC}', HDF5 lib='${_HDF5_LIB}'"
-echo "MED inc='${_MED_INC}', MED lib='${_MED_LIB}'"
+# Python: TELEMAC scripts + the compiled extensions (TelApy '_api', '_hermes')
+# that CMake places in BUILD_DIR/lib.
+for _pydir in "${HOMETEL}/scripts/python3" "${BUILD_DIR}/lib"; do
+  [ -d "${_pydir}" ] || continue
+  case ":${PYTHONPATH}:" in
+    *:"${_pydir}":*) ;;
+    *) export PYTHONPATH="${_pydir}:${PYTHONPATH}";;
+  esac
+done
 
-# Unbuffered Python for clearer build logs
+echo "TELEMAC set: HOMETEL='${HOMETEL}', BUILD_DIR='${BUILD_DIR}', BUILD_TYPE='${BUILD_TYPE}'"
+echo "HDF5 inc='${_HDF5_INC}', HDF5 lib='${_HDF5_LIB}'"
+[ -n "${MED_ROOT:-}" ] && echo "MED_ROOT='${MED_ROOT}' (system MED via private prefix)"
+
 export PYTHONUNBUFFERED="1"
