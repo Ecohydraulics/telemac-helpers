@@ -49,6 +49,16 @@ log()  { echo "[*] $*"; }
 warn() { echo "[WARN] $*" >&2; }
 die()  { echo "[ERROR] $*" >&2; exit 1; }
 
+# Avoid foreign Python setups during TELEMAC CMake configuration/runtime.
+unset PYTHONHOME
+unset CONDA_PREFIX
+unset CONDA_DEFAULT_ENV
+unset VIRTUAL_ENV
+unset MAMBA_ROOT_PREFIX
+
+export Python_ROOT_DIR="/usr"
+export Python_EXECUTABLE="/usr/bin/python3"
+
 detect_mime() {
   # Best-effort MIME type for a local file (requires 'file').
   # Examples: application/x-gzip, application/x-tar, application/zip, text/html
@@ -430,17 +440,20 @@ detect_salome_med_root() {
 }
 
 detect_system_med_root() {
-  # Prefer system MED (Debian packages) for TELEMAC to avoid ABI mismatches with SALOME-bundled MED.
-  # Returns "/usr" if libmedC + headers are found, else empty.
-  local arch
-  arch="$(gcc -dumpmachine 2>/dev/null || echo x86_64-linux-gnu)"
-  local libdir="/usr/lib/${arch}"
+  local arch libdir
 
-  if [ -e "/usr/include/med.h" ] && { ls "${libdir}/libmedC.so"* >/dev/null 2>&1 || ldconfig -p 2>/dev/null | grep -q "libmedC.so"; }; then
+  arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null || gcc -dumpmachine 2>/dev/null || echo x86_64-linux-gnu)"
+  libdir="/usr/lib/${arch}"
+
+  if [ -f "/usr/include/med.h" ] && [ -e "${libdir}/libmedC.so" ]; then
     echo "/usr"
     return 0
   fi
 
+  echo "[DEBUG] MED probe failed:" >&2
+  echo "[DEBUG]   arch=${arch}" >&2
+  echo "[DEBUG]   /usr/include/med.h: $(test -f /usr/include/med.h && echo yes || echo no)" >&2
+  echo "[DEBUG]   ${libdir}/libmedC.so: $(test -e "${libdir}/libmedC.so" && echo yes || echo no)" >&2
   echo ""
 }
 
@@ -504,7 +517,7 @@ setup_med_root() {
   fi
 
   local arch
-  arch="$(gcc -dumpmachine 2>/dev/null || echo x86_64-linux-gnu)"
+  arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null || gcc -dumpmachine 2>/dev/null || echo x86_64-linux-gnu)"
   local libdir="/usr/lib/${arch}"
 
   local med_root="${HOMETEL}/configs/med_root"
@@ -628,7 +641,7 @@ for _d in "${HOMETEL}/scripts/python3" "${HOMETEL}/scripts/unix" "${BUILD_DIR}/b
   fi
 done
 
-_arch="$(gcc -dumpmachine 2>/dev/null || echo x86_64-linux-gnu)"
+_arch="$(dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null || gcc -dumpmachine 2>/dev/null || echo x86_64-linux-gnu)"
 _archlib="/usr/lib/${_arch}"
 
 _first_dir() { for _d in "$@"; do [ -d "$_d" ] && { printf '%s' "$_d"; return 0; }; done; return 1; }
@@ -783,36 +796,76 @@ run_compile() {
     return
   fi
 
-  log "Building TELEMAC v9.1.x with CMake via build_telemac.py (10-30 min)..."
+  log "Building TELEMAC v9.1.x with CMake (direct configure/build, forced system Python)..."
 
-  # Unset DISPLAY to avoid MPI/X11 authorization issues
+  # Avoid MPI/X11 authorization issues.
   unset DISPLAY
-
-  # Dependencies enabled for the CMake build. METIS is implicit with MPI.
-  # AED2 and GOTM are left off (not installed system-wide; they are REQUIRED by
-  # CMake when enabled and would abort configuration).
-  local deps="mpi mumps"
-  [ "$MED_ENABLED" -eq 1 ] && deps="${deps} med"
 
   local jobs
   jobs="$(nproc 2>/dev/null || echo 4)"
 
   local compile_status=0
-  bash -lc "
+
+  (
     set -euo pipefail
-    cd \"$HOMETEL\"
-    source \"$HOMETEL/configs/pysource.debian12.sh\"
-    echo '[*] Running build_telemac.py --rebuild --deps ${deps} -j ${jobs} ...'
-    build_telemac.py --rebuild --deps ${deps} -j ${jobs}
+    cd "$HOMETEL"
+    source "$HOMETEL/configs/pysource.debian12.sh"
+
+    # Force Debian's system Python and avoid SALOME/conda/pyenv Python leakage.
+    unset PYTHONHOME CONDA_PREFIX CONDA_DEFAULT_ENV VIRTUAL_ENV MAMBA_ROOT_PREFIX
+    export Python_ROOT_DIR="/usr"
+    export Python_EXECUTABLE="/usr/bin/python3"
+
+    local pyexe="/usr/bin/python3"
+    local numpy_inc
+    local python_inc
+    local med_bool="OFF"
+    local med_root="${MED_ROOT:-$HOMETEL/configs/med_root}"
+
+    [ "$MED_ENABLED" -eq 1 ] && med_bool="ON"
+
+    numpy_inc="$($pyexe -c 'import numpy; print(numpy.get_include())')"
+    python_inc="$($pyexe -c 'import sysconfig; print(sysconfig.get_path("include"))')"
+
+    echo "[*] Python executable: $pyexe"
+    echo "[*] Python include:    $python_inc"
+    echo "[*] NumPy include:     $numpy_inc"
+    echo "[*] MED enabled:       $med_bool"
+
+    rm -rf "$BUILD_DIR"
+
+    cmake -S "$HOMETEL" -B "$BUILD_DIR" \
+      -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
+      -G "Unix Makefiles" \
+      -DUSE_MED:BOOL="$med_bool" \
+      -DUSE_MPI:BOOL=ON \
+      -DUSE_MUMPS:BOOL=ON \
+      -DUSE_AED2:BOOL=OFF \
+      -DUSE_GOTM:BOOL=OFF \
+      -DBUILD_TELAPY:BOOL=ON \
+      -DBUILD_HERMES_WRAPPER:BOOL=ON \
+      -DMETIS_ROOT=/usr \
+      -DMUMPS_ROOT=/usr \
+      -DMPI_ROOT=/usr \
+      -DMED_ROOT="$med_root" \
+      -DPython_EXECUTABLE="$pyexe" \
+      -DPython_ROOT_DIR=/usr \
+      -DPython_FIND_STRATEGY=LOCATION \
+      -DPython_FIND_VIRTUALENV=STANDARD \
+      -DPython_INCLUDE_DIR="$python_inc" \
+      -DPython_NumPy_INCLUDE_DIR="$numpy_inc"
+
+    cmake --build "$BUILD_DIR" --parallel "$jobs"
+
     echo '[*] Displaying configuration (config.py) ...'
     config.py || true
-  " || compile_status=$?
+  ) 2>&1 | tee "$HOMETEL/build_telemac_debian12.log" || compile_status=${PIPESTATUS[0]}
 
   if [ "$compile_status" -ne 0 ]; then
-    die "TELEMAC compilation failed with exit code $compile_status. See errors above."
+    die "TELEMAC compilation failed with exit code $compile_status. See $HOMETEL/build_telemac_debian12.log."
   fi
 
-  log "TELEMAC build command completed."
+  log "TELEMAC build command completed. Full log: $HOMETEL/build_telemac_debian12.log"
 
   if ! verify_telemac_build "$HOMETEL"; then
     warn "Build verification found issues. TELEMAC may not work correctly."
